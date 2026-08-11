@@ -107,6 +107,45 @@ fn void require_argument(String[] args, sz arg_idx) {
 	}
 }
 
+fn void check_nr_format(String nr_format) {
+	sz perc_idx = 0;
+	bool is_valid_format = false;
+	while (try _perc_idx = nr_format.index_of_char_from('%', perc_idx)) {
+		_perc_idx += 1;
+		if (_perc_idx >= nr_format.len) break;
+
+		// Only allow a single %..d, so if we already found one,
+		// then this one should be an escaped percent: '%%'
+		if (is_valid_format && nr_format[_perc_idx] != '%') {
+			error(
+				"--nrformat argument '%s' includes multiple '%%...d's, "
+				"which is not allowed",
+				nr_format
+			);
+		}
+
+		// Skip forward so that '%-2d' is allowed
+		if (nr_format[_perc_idx] == '-') _perc_idx += 1;
+		while (_perc_idx < nr_format.len && nr_format[_perc_idx].is_digit()) {
+			_perc_idx++;
+		}
+
+		if (
+			_perc_idx < nr_format.len
+			&& letter_in(nr_format[_perc_idx], 'd' , 's')
+		) {
+			is_valid_format = true;
+		}
+		perc_idx = _perc_idx + 1;
+	}
+	if (!is_valid_format) {
+		error(
+			"--nrformat argument '%s' does not include '%%d' for the number",
+			nr_format
+		);
+	}
+}
+
 fn int parse_number(String argument, String number) {
 	int? parsed_number = number.to_int();
 	if (catch parsed_number) {
@@ -190,51 +229,17 @@ fn Print3Config parse_cli_args(String[] args) {
 			case "--nrformat":
 				require_argument(args, arg_idx);
 				arg_idx += 1;
-				String nr_format = args[arg_idx];
-				sz perc_idx = 0;
-				bool is_valid_format = false;
-				while (try _perc_idx = nr_format.index_of_char_from('%', perc_idx)) {
-					if (_perc_idx + 1 < nr_format.len) {
-						_perc_idx += 1;
-						if (letter_in(nr_format[_perc_idx], 'd', 's')) {
-							is_valid_format = true;
-							break;
-						} else if (nr_format[_perc_idx].is_digit()) {
-							_perc_idx += 1;
-							while (
-								_perc_idx < nr_format.len
-								&& nr_format[_perc_idx].is_digit()
-							) {
-								_perc_idx++;
-							}
-							if (
-								_perc_idx < nr_format.len
-								&& letter_in(nr_format[_perc_idx], 'd', 's')
-							) {
-								is_valid_format = true;
-								break;
-							}
-						}
-					}
-					perc_idx = _perc_idx + 1;
-				}
-				if (!is_valid_format) {
-					error(
-						"--nrformat argument '%s' does not include '%%d' for "
-						"the number",
-						nr_format
-					);
-				}
-				parsed_config.nr_format = nr_format;
+				check_nr_format(args[arg_idx]);
+				parsed_config.nr_format = args[arg_idx];
 
 			case "--line-start":
 				require_argument(args, arg_idx);
-				arg_idx++;
+				arg_idx += 1;
 				parsed_config.line_start = parse_number(args[arg_idx - 1], args[arg_idx]);
 
 			case "--line-stop":
 				require_argument(args, arg_idx);
-				arg_idx++;
+				arg_idx += 1;
 				parsed_config.line_stop = parse_number(args[arg_idx - 1], args[arg_idx]);
 
 			case "--colour-at":
