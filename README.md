@@ -4,6 +4,7 @@ A `cat`-like programming built for C3 source files, it will try to highlight
 the source like inside an editor.
 
 Example:
+
 ![image of the ./example/example.c3 file when printed by print3](./example/example.png)
 
 
