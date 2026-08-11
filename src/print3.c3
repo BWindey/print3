@@ -36,9 +36,6 @@ fn void print_number(Print3Config config, String line, sz* i) {
 // TODO: use symbol colour for escape sequences in strings
 // TODO: support doc contracts
 fn void print_line(Print3Config config, String line, sz i) => @pool() {
-	if (config.line_start >= 0 && i < config.line_start) return;
-	if (config.line_stop >= 0 && i > config.line_stop) return;
-
 	if (config.add_line_nr) io::printf(config.nr_format, i)!!;
 
 	// TODO: only calculate this once instead of once per line
@@ -364,12 +361,14 @@ fn void? print_file(Print3Config config, String file_name) => @pool() {
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
 
-	sz i = 1;
+	sz i = 0;
 	while (try line = io::treadline(&open_file)) {
+		i++;
+		if (config.line_start >= 0 && i < config.line_start) continue;
+		if (config.line_stop >= 0 && i > config.line_stop) continue;
+
 		// TODO:
-		// - calculate which lines to print
 		// - truncate too long lines (80)
 		print_line(config, line, i);
-		i++;
 	}
 }
