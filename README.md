@@ -7,6 +7,10 @@ Example:
 
 ![image of the ./example/example.c3 file when printed by print3](./example/example.png)
 
+A special thank you to [@ManuLinares](https://github.com/ManuLinares/) for the regex
+that selects any valid C3 number
+(including the fun stuff like `1.3e-39` or `32ull`)!
+
 
 ## Usage:
 
