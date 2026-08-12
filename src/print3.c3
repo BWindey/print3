@@ -86,25 +86,21 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 
 	// Handle multiline comments / comment blocks
 	if (comment_depth > 0) stdout.write(config.theme.comment)!!;
+	sz start_comment = idx;
 	while (comment_depth > 0 && idx < line.len) {
 		if (idx + 1 < line.len && line[idx:2] == "/*") {
-			comment_depth++;
+			comment_depth += 1;
 			idx += 2;
-			stdout.write("/*")!!;
-			continue;
-		}
-
-		if (idx + 1 < line.len && line[idx:2] == "*/") {
-			stdout.write("*/")!!;
-			comment_depth--;
+		} else if (idx + 1 < line.len && line[idx:2] == "*/") {
+			comment_depth -= 1;
 			idx += 2;
-			if (comment_depth == 0) {
-				stdout.write(Ansi.RESET)!!;
-			}
 		} else {
-			stdout.write_byte(line[idx])!!;
 			idx++;
 		}
+	}
+	if (idx > start_comment) {
+		stdout.write(line[start_comment..idx - 1])!!;
+		if (comment_depth <= 0) stdout.write(Ansi.RESET)!!;
 	}
 	if (idx >= line.len) stdout.write(Ansi.RESET)!!;
 
