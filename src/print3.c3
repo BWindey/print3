@@ -270,70 +270,112 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 				String word = line[word_start_idx..word_end_idx];
 
 				switch (word) {
-					case "fn":
-					case "macro":
-					case "return":
-					case "module":
-					case "import":
-					case "switch":
+					case "alias":
+					case "assert":
+					case "asm":
+					case "attrdef":
+					case "attrgroup":
+					case "attrmacro":
+					case "bitstruct":
+					case "break":
 					case "case":
+					case "catch":
+					case "constdef":
+					case "const":
+					case "constset":
+					case "cenum":
+					case "continue":
 					case "default":
-					case "nextcase":
-					case "if":
-					case "else":
-					case "while":
+					case "defer":
 					case "do":
+					case "else":
+					case "enum":
+					case "extern":
+					case "false":
+					case "excuse":
+					case "faultdef":
+					case "faultset":
+					case "faultconst":
 					case "for":
 					case "foreach":
 					case "foreach_r":
-					case "try":
-					case "catch":
-					case "true":
-					case "false":
-					case "enum":
-					case "struct":
-					case "union":
-					case "assert":
-					case "faultdef":
-					case "attrdef":
-					case "typedef":
-					case "const":
+					case "fn":
+					case "tlocal":
+					case "if":
+					case "inline":
+					case "import":
+					case "lengthof":
+					case "macro":
+					case "module":
+					case "nextcase":
+					case "null":
+					case "interface":
+					case "return":
 					case "static":
-					case "alias":
+					case "struct":
+					case "switch":
+					case "true":
+					case "try":
+					case "typedef":
+					case "distinct":
+					case "union":
 					case "var":
-					case "$for":
+					case "while":
+					case "$assert":
+					case "$case":
+					case "$default":
+					case "$defined":
+					case "$echo":
+					case "$else":
+					case "$embed":
 					case "$endfor":
 					case "$endforeach":
 					case "$endif":
 					case "$endswitch":
-					case "$if":
-					case "$else":
-					case "$switch":
-					case "$case":
-					case "$default":
-					case "$echo":
-					case "$error":
 					case "$eval":
-					case "$evaltype":
+					case "$error":
 					case "$exec":
-					case "$extnameof":
+					case "$expand":
+					case "$feat":
+					case "$feature":
+					case "$for":
+					case "$foreach":
+					case "$if":
+					case "$include":
+					case "$reflect":
+					case "$stringify":
+					case "$switch":
+					case "$Typefrom":
+					case "$Typeof":
+					case "$vaarg":
 						stdout.write(config.theme.keyword)!!;
 						stdout.write(word)!!;
 						stdout.write(Ansi.RESET)!!;
-					case "float":
-					case "double":
-					case "bool":
-					case "int":
-					case "uint":
-					case "long":
-					case "ulong":
-					case "char":
-					case "ichar":
-					case "short":
-					case "ushort":
-					case "sz":
-					case "usz":
 					case "void":
+					case "bool":
+					case "char":
+					case "double":
+					case "float":
+					case "float16":
+					case "bfloat":
+					case "int128":
+					case "ichar":
+					case "int":
+					case "iptr":
+					case "sz":
+					case "long":
+					case "short":
+					case "uint128":
+					case "uint":
+					case "ulong":
+					case "uptr":
+					case "ushort":
+					case "usz":
+					case "float128":
+					case "any":
+					case "fault":
+					case "typeid":
+					case "untypedlist":
 						stdout.write(config.theme.type)!!;
 						stdout.write(word)!!;
 						stdout.write(Ansi.RESET)!!;
