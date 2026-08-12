@@ -19,7 +19,43 @@ macro bool is_escaped_char(String line, sz idx) {
 }
 
 Regex number_regex @local @noinit;
-bool number_regex_compiled @local = false;
+String tab_replacement @local @noinit;
+sz nr_format_len @local @noinit;
+bool local_vars_started @local = false;
+
+fn sz String.visual_len(self) {
+	sz len = 0;
+	for (sz i = 0; i < self.len;) {
+		char c = self[i];
+		switch (c) {
+			// Visible ASCII
+			case 32..126:
+				len += 1;
+				i += 1;
+
+			// UTF-8 multibyte
+			case 0b1100_0000..0b1101_1111:
+				len += 1;
+				i += 2;
+			case 0b1110_0000..0b1110_1111:
+				len += 1;
+				i += 3;
+			case 0b1111_0000..0b1111_0111:
+				len += 1;
+				i += 4;
+
+			case 0..31:
+			case 127:
+				i += 1;
+
+			default:
+				// Should not happen but I don't really want it to crash...
+				i += 1;
+		}
+	}
+
+	return len;
+}
 
 fn void print_number(Print3Config config, String line, sz* i) {
 	Match m = number_regex.first_match(line[*i..])!!;
@@ -38,11 +74,6 @@ fn void print_number(Print3Config config, String line, sz* i) {
 fn void print_line(Print3Config config, String line, sz i) => @pool() {
 	if (config.add_line_nr) io::printf(config.nr_format, i)!!;
 
-	// TODO: only calculate this once instead of once per line
-	String tab_replacement = (String) alloc::new_array(
-		tmem, char, config.spaces_per_tab
-	);
-	mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
 	line = line.treplace("\t", tab_replacement);
 
 	sz idx = 0;
@@ -67,11 +98,7 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				io::print(Ansi.RESET);
 			}
 		} else {
-			if (line[idx] == '\t') {
-				io::print(tab_replacement);
-			} else {
-				io::printf("%c", line[idx]);
-			}
+			io::printf("%c", line[idx]);
 			idx++;
 		}
 	}
@@ -83,8 +110,6 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 		if (line[idx] == '`') {
 			in_raw_string = false;
 			io::printf("`%s", Ansi.RESET);
-		} else if (line[idx] == '\t') {
-			io::print(tab_replacement);
 		} else {
 			io::printf("%c", line[idx]);
 		}
@@ -95,9 +120,6 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 	// Handle rest
 	while (idx < line.len) {
 		switch (line[idx]) @jump {
-			case '\t':
-				io::print(tab_replacement);
-				idx++;
 			case ' ':
 				io::print(" ");
 				idx++;
@@ -346,18 +368,33 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 }
 
 fn void? print_file(Print3Config config, String file_name) => @pool() {
-	if (!number_regex_compiled) {
+	if (!local_vars_started) {
 		number_regex = regex::compile(
 			tmem,
 			`^[-+]?(`
-			`0x[0-9a-f](_*[0-9a-f])*(\.[0-9a-f](_*[0-9a-f])*p[+-]?[0-9](_*[0-9])*[fd]?|u?l{0,2}|l{1,2}u)|`
-			`(0b[01](_*[01])*|0o[0-7](_*[0-7])*)(u?l{0,2}|l{1,2}u)|`
-			`[0-9](_*[0-9])*(\.[0-9](_*[0-9])*(e[+-]?[0-9](_*[0-9])*)?[fd]?|e[+-]?[0-9](_*[0-9])*[fd]?|u?l{0,2}|l{1,2}u)`
+			`0x[0-9a-f](_?[0-9a-f])*(\.[0-9a-f](_?[0-9a-f])*p[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})|`
+			`(0b[01](_?[01])*|0o[0-7](_?[0-7])*)(u?l{0,2})|`
+			`[0-9](_?[0-9])*(\.[0-9](_?[0-9])*(e[+-]?[0-9](_?[0-9])*)?[fd]?|e[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})`
 			`)`,
 			EXTENDED
 		)!!;
-		number_regex_compiled = true;
+
+		tab_replacement = (String) alloc::new_array(
+			tmem, char, config.spaces_per_tab
+		);
+		mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
+
+		if (config.add_line_nr) {
+			nr_format_len = config.nr_format.visual_len();
+
+		} else {
+			nr_format_len = 0;
+		}
+
+		local_vars_started = true;
 	}
+
+
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
 
