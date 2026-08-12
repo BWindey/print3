@@ -20,6 +20,7 @@ macro bool is_escaped_char(String line, sz idx) {
 
 Regex number_regex @local @noinit;
 String tab_replacement @local @noinit;
+Allocator used_allocator @local @noinit;
 sz nr_format_len @local @noinit;
 bool local_vars_started @local = false;
 
@@ -68,6 +69,11 @@ fn void print_number(Print3Config config, String line, sz* i) {
 
 // TODO: use symbol colour for escape sequences in strings
 // TODO: support doc contracts
+// TODO: for lines that do not get printed, add a scan for opening/closing
+//       contracts, strings, comments, ...
+
+sz comment_depth = 0;
+bool in_raw_string = false;
 
 fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 	sz chars_printed = 0;
@@ -77,8 +83,6 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 	line = line.treplace("\t", tab_replacement);
 
 	sz idx = 0;
-	static sz comment_depth = 0;
-	static bool in_raw_string = false;
 
 	// Handle multiline comments / comment blocks
 	if (comment_depth > 0) stdout.write(config.theme.comment)!!;
@@ -120,7 +124,7 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 
 	// Handle rest
 	while (idx < line.len) {
-		switch (line[idx]) @jump {
+		switch (line[idx]) {
 			case ' ':
 				stdout.write_byte(' ')!!;
 				idx++;
@@ -372,36 +376,47 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 	if (line.len == 0 || line[^1] != '\n') stdout.write_byte('\n')!!;
 }
 
-fn void? print_file(Print3Config config, String file_name) => @pool() {
-	if (!local_vars_started) {
-		number_regex = regex::compile(
-			tmem,
-			`^[-+]?(`
-			`0x[0-9a-f](_?[0-9a-f])*(\.[0-9a-f](_?[0-9a-f])*p[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})|`
-			`(0b[01](_?[01])*|0o[0-7](_?[0-7])*)(u?l{0,2})|`
-			`[0-9](_?[0-9])*(\.[0-9](_?[0-9])*(e[+-]?[0-9](_?[0-9])*)?[fd]?|e[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})`
-			`)`,
-			EXTENDED
-		)!!;
+fn void setup_print_file(Allocator allocator, Print3Config config) {
+	if (local_vars_started) return;
 
-		tab_replacement = (String) alloc::new_array(
-			tmem, char, config.spaces_per_tab
-		);
-		mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
+	number_regex = regex::compile(
+		allocator,
+		`^[-+]?(`
+		`0x[0-9a-f](_?[0-9a-f])*(\.[0-9a-f](_?[0-9a-f])*p[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})|`
+		`(0b[01](_?[01])*|0o[0-7](_?[0-7])*)(u?l{0,2})|`
+		`[0-9](_?[0-9])*(\.[0-9](_?[0-9])*(e[+-]?[0-9](_?[0-9])*)?[fd]?|e[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})`
+		`)`,
+		EXTENDED | ICASE
+	)!!;
 
-		if (config.add_line_nr) {
-			nr_format_len = config.nr_format.visual_len();
+	tab_replacement = (String) alloc::new_array(
+		allocator, char, config.spaces_per_tab
+	);
+	mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
 
-		} else {
-			nr_format_len = 0;
-		}
-
-		local_vars_started = true;
+	if (config.add_line_nr) {
+		nr_format_len = config.nr_format.visual_len();
+	} else {
+		nr_format_len = 0;
 	}
 
+	used_allocator = allocator;
 
+	local_vars_started = true;
+}
+
+fn void cleanup_print_file() {
+	number_regex.free();
+	alloc::free(used_allocator, tab_replacement.ptr);
+}
+
+
+fn void? print_file(Print3Config config, String file_name) => @pool() {
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
+
+	comment_depth = 0;
+	in_raw_string = false;
 
 	sz i = 0;
 	while (try line = io::treadline(&open_file)) {
