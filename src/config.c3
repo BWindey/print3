@@ -158,14 +158,25 @@ fn int parse_number(String argument, String number) {
 }
 
 fn String parse_colour(String argument, String colour) {
-	if (!colour.starts_with("#") || colour.len != 7) {
+	if (colour[0] == '#') {
+		if (colour.len != 7) {
+			error(
+				"colour for %s does not follow #RRGGBB format: '%s'",
+				argument, colour
+			);
+		}
+	} else if (colour.len != 6) {
 		error(
-			"colour for %s does not follow #RRGGBB format: '%s'",
+			"colour for %s does not follow RRGGBB format: '%s'",
 			argument, colour
 		);
 	}
-	String hex_string = colour[1:6];
-	uint? colour_rgb = colour.to_uint(base: 16);
+
+	sz hex_start = 0;
+	if (colour[0] == '#') hex_start = 1;
+
+	String hex_string = colour[hex_start:6];
+	uint? colour_rgb = hex_string.to_uint(base: 16);
 	if (catch colour_rgb) {
 		error(
 			"colour '%s' for %s could not get parsed to an integer",
