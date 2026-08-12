@@ -60,18 +60,18 @@ fn sz String.visual_len(self) {
 fn void print_number(Print3Config config, String line, sz* i) {
 	Match m = number_regex.first_match(line[*i..])!!;
 	sz number_end_idx = *i + m.end;
-	io::printf(
-		"%s%s%s",
-		config.theme.number,
-		line[*i:m.end],
-		Ansi.RESET
-	);
+	io::print(config.theme.number);
+	io::print(line[*i:m.end]);
+	io::print(Ansi.RESET);
 	*i += m.end;
 }
 
 // TODO: use symbol colour for escape sequences in strings
 // TODO: support doc contracts
-fn void print_line(Print3Config config, String line, sz i) => @pool() {
+
+fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
+	sz chars_printed = 0;
+	File* stdout = io::stdout();
 	if (config.add_line_nr) io::printf(config.nr_format, i)!!;
 
 	line = line.treplace("\t", tab_replacement);
@@ -98,7 +98,7 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				io::print(Ansi.RESET);
 			}
 		} else {
-			io::printf("%c", line[idx]);
+			stdout.write_byte(line[idx])!!;
 			idx++;
 		}
 	}
@@ -109,9 +109,10 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 	while (in_raw_string && idx < line.len) {
 		if (line[idx] == '`') {
 			in_raw_string = false;
-			io::printf("`%s", Ansi.RESET);
+			stdout.write_byte('`')!!;
+			io::print(Ansi.RESET);
 		} else {
-			io::printf("%c", line[idx]);
+			stdout.write_byte(line[idx])!!;
 		}
 		idx++;
 	}
@@ -144,10 +145,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 					} else {
 						nextcase;
 					}
-					io::printf(
-						"%s%s%s",
-						config.theme.comment, line[idx..end_of_comment], Ansi.RESET
-					);
+					io::print(config.theme.comment);
+					io::print(line[idx..end_of_comment]);
+					io::print(Ansi.RESET);
 					idx = end_of_comment + 1;
 				} else {
 					nextcase;
@@ -171,7 +171,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 			case '|':
 			case '&':
 			case '~':
-				io::printf("%s%c%s", config.theme.symbol, line[idx], Ansi.RESET);
+				io::print(config.theme.symbol);
+				stdout.write_byte(line[idx])!!;
+				io::print(Ansi.RESET);
 				idx++;
 
 			case '\'':
@@ -180,10 +182,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				while (
 					idx < line.len && (line[idx] != '\'' || is_escaped_char(line, idx))
 				) { idx++; }
-				io::printf(
-					"%s%s%s",
-					Ansi.BRIGHT_GREEN, line[word_start_idx..idx], Ansi.RESET
-				);
+				io::print(config.theme.string);
+				io::print(line[word_start_idx..idx]);
+				io::print(Ansi.RESET);
 				idx++;
 
 			case '"':
@@ -192,10 +193,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				while (
 					idx < line.len && (line[idx] != '"' || is_escaped_char(line, idx))
 				) { idx++; }
-				io::printf(
-					"%s%s%s",
-					Ansi.BRIGHT_GREEN, line[word_start_idx..idx], Ansi.RESET
-				);
+				io::print(config.theme.string);
+				io::print(line[word_start_idx..idx]);
+				io::print(Ansi.RESET);
 				idx++;
 			case '`':
 				sz word_start_idx = idx;
@@ -207,10 +207,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 					idx--;
 					in_raw_string = true;
 				}
-				io::printf(
-					"%s%s%s",
-					Ansi.BRIGHT_GREEN, line[word_start_idx..idx], Ansi.RESET
-				);
+				io::print(config.theme.string);
+				io::print(line[word_start_idx..idx]);
+				io::print(Ansi.RESET);
 				idx++;
 
 			case '0'..'9':
@@ -232,9 +231,13 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				String word = line[word_start_idx..word_end_idx];
 
 				if (is_al_caps) {
-					io::printf("%s%s%s", Ansi.BRIGHT_MAGENTA, word, Ansi.RESET);
+					io::print(config.theme.constant);
+					io::print(word);
+					io::print(Ansi.RESET);
 				} else {
-					io::printf("%s%s%s", Ansi.BRIGHT_YELLOW, word, Ansi.RESET);
+					io::print(config.theme.type);
+					io::print(word);
+					io::print(Ansi.RESET);
 				}
 
 			case '@':
@@ -250,12 +253,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 				if (idx < line.len && line[idx] == '(') {
 					io::print(Ansi.BOLD);
 				}
-				io::printf(
-					"%s%s%s",
-					Ansi.BRIGHT_CYAN,
-					line[word_start_idx..word_end_idx],
-					Ansi.RESET
-				);
+				io::print(config.theme.at);
+				io::print(line[word_start_idx..word_end_idx]);
+				io::print(Ansi.RESET);
 
 			default:
 				sz word_start_idx = idx;
@@ -317,7 +317,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 					case "$evaltype":
 					case "$exec":
 					case "$extnameof":
-						io::printf("%s%s%s", Ansi.BRIGHT_RED, word, Ansi.RESET);
+						io::print(config.theme.keyword);
+						io::print(word);
+						io::print(Ansi.RESET);
 					case "float":
 					case "double":
 					case "bool":
@@ -332,18 +334,19 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 					case "sz":
 					case "usz":
 					case "void":
-						io::printf("%s%s%s", Ansi.BRIGHT_YELLOW, word, Ansi.RESET);
+						io::print(config.theme.type);
+						io::print(word);
+						io::print(Ansi.RESET);
 					default:
 						if (line[word_start_idx] == '$') {
-							io::printf(
-								"%s%s%s",
-								Ansi.BRIGHT_CYAN, word, Ansi.RESET
-							);
+							io::print(config.theme.comptime_ident);
+							io::print(word);
+							io::print(Ansi.RESET);
 						} else if (idx < line.len && line[idx] == '(') {
-							io::printf(
-								"%s%s%s%s",
-								Ansi.BOLD, Ansi.BRIGHT_GREEN, word, Ansi.RESET
-							);
+							io::print(Ansi.BOLD);
+							io::print(config.theme.call);
+							io::print(word);
+							io::print(Ansi.RESET);
 						} else if (
 							word_start_idx - 1 >= 0
 							&& line[word_start_idx - 1] == '.'
@@ -356,7 +359,9 @@ fn void print_line(Print3Config config, String line, sz i) => @pool() {
 								|| line[word_start_idx - 2] == ']'
 							)
 						) {
-							io::printf("%s%s%s", Ansi.BRIGHT_BLUE, word, Ansi.RESET);
+							io::print(config.theme.member);
+							io::print(word);
+							io::print(Ansi.RESET);
 						} else {
 							io::print(word);
 						}
