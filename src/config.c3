@@ -15,8 +15,6 @@ const String HELP_MESSAGE =
   -h, --help              Show this help message
 
   --tabsize <number>      Amount of spaces to print for a tab character
-  --maxcol <number>       Max length of a line, truncates rest
-  --ellipsis <text>       Ellipsis to use when truncating
   -n, --number            Show line numbers
   --nonumber              Show no line numbers
   --nrformat <text>       Format for numbers (f.e. "%d | ").
@@ -42,17 +40,6 @@ const String HELP_MESSAGE =
 	Examples: "%d", "line - %-5d :"
 `;
 
-<*
-	Draft for custom --nrformat:
-	- anything possible, but %d is where the number will go
-	- % can be escaped like '%%', not needed after the first '%d'
-	Formatting options:
-	- allow a number to preserve space, 1 <= nr. <= 9
-	- allow '-' for left align
-	- allow '0' before space preserve to padd with '0', '.' or '_'
-
-	% [-] [0._] [1-9] d
-*>
 
 struct Print3Theme {
 	String at;
@@ -80,11 +67,9 @@ struct Print3LineNr {
 struct Print3Config {
 	char spaces_per_tab;
 	bool add_line_nr;
-	int max_col;         // < 0 for no limit
 	sz line_start;       // inclusive
 	sz line_stop;        // inclusive, < 0 for no limit
 	sz print_buffer_size;
-	String ellipsis;
 	Print3LineNr nr_format;
 	List{String} files;
 	Print3Theme theme;
@@ -93,11 +78,9 @@ struct Print3Config {
 const Print3Config DEFAULT_CONFIG = {
 	.spaces_per_tab = 4,
 	.add_line_nr = true,
-	.max_col = -1,
 	.line_start = 0,
 	.line_stop = -1,
 	.print_buffer_size = 128,
-	.ellipsis = "...",
 	.nr_format = {
 		.left_align = false,
 		.padding_char = ' ',
@@ -269,22 +252,6 @@ fn Print3Config parse_cli_args(String[] args) {
 					);
 				}
 				parsed_config.spaces_per_tab = (char) parsed_tab_size;
-
-			case "--maxcol":
-				require_argument(args, arg_idx);
-				arg_idx += 1;
-				parsed_config.max_col = parse_number(args[arg_idx - 1], args[arg_idx]);
-
-			case "--ellipsis":
-				require_argument(args, arg_idx);
-				arg_idx += 1;
-				if (args[arg_idx].len > 4) {
-					error(
-						"--ellipsis argument '%s' is too long to use (len > 4)",
-						args[arg_idx]
-					);
-				}
-				parsed_config.ellipsis = args[arg_idx];
 
 			case "-n":
 			case "--number":

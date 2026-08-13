@@ -539,8 +539,6 @@ fn void? print_file(Print3Config config, String file_name) {
 		if (config.line_start >= 0 && i < config.line_start) continue;
 		if (config.line_stop >= 0 && i > config.line_stop) continue;
 
-		// TODO:
-		// - truncate too long lines (80)
 		print_line(config, line, i);
 		internal_allocator.reset(line_alloc_mark);
 	}

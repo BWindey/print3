@@ -15,13 +15,6 @@ fn BufferedOutput new(Allocator allocator, sz size, File* output = io::stdout())
 	};
 }
 
-macro BufferedOutput* temp(sz size) => new(tmem, size);
-
-// WARNING: make sure this is the same allocator as passed to 'new()'
-fn void BufferedOutput.free(&self, Allocator allocator) {
-	alloc::free(allocator, self.buffer);
-}
-
 fn void? BufferedOutput.write_byte(&self, char byte) @maydiscard {
 	self.buffer[self.written] = byte;
 	self.written++;

@@ -26,8 +26,6 @@ Available options:
 -h, --help              Show this help message
 
 --tabsize <number>      Amount of spaces to print for a tab character
---maxcol <number>       Max length of a line, truncates rest
---ellipsis <text>       Ellipsis to use when truncating
 -n, --number            Show line numbers
 --nonumber              Show no line numbers
 --nrformat <text>       Format for numbers (f.e. "%d | ").
