@@ -21,7 +21,7 @@ macro bool is_escaped_char(String line, sz idx) {
 Regex number_regex @local @noinit;
 String tab_replacement @local @noinit;
 BufferedOutput buffered_output @local @noinit;
-Allocator used_allocator @local @noinit;
+BackedArenaAllocator* internal_allocator @local @noinit;
 sz nr_format_len @local @noinit;
 
 bool local_vars_started @local = false;
@@ -77,13 +77,17 @@ fn void print_number(Print3Config config, String line, sz* i) {
 sz comment_depth = 0;
 bool in_raw_string = false;
 
-fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
+fn void print_line(Print3Config config, String line, sz i) @local {
 	sz chars_printed = 0;
-	if (config.add_line_nr) @pool() {
-		buffered_output.write(string::tformat(config.nr_format, i))!!;
-	};
+	if (config.add_line_nr) {
+		sz mark = internal_allocator.mark();
+		buffered_output.write(
+			string::format(internal_allocator, config.nr_format, i)
+		);
+		internal_allocator.reset(mark);
+	}
 
-	line = line.treplace("\t", tab_replacement);
+	line = line.replace(internal_allocator, "\t", tab_replacement);
 
 	sz idx = 0;
 
@@ -431,20 +435,25 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 		EXTENDED | ICASE
 	)!!;
 
-	tab_replacement = (String) alloc::new_array(
-		allocator, char, config.spaces_per_tab
-	);
-	mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
-
 	if (config.add_line_nr) {
 		nr_format_len = config.nr_format.visual_len();
 	} else {
 		nr_format_len = 0;
 	}
 
-	buffered_output = bufferedoutput::new(allocator, config.print_buffer_size);
+	internal_allocator = allocators::new_backed_allocator(
+		config.print_buffer_size + BufferedOutput::size + 2048u,
+		allocator
+	)!!;
 
-	used_allocator = allocator;
+	buffered_output = bufferedoutput::new(
+		internal_allocator, config.print_buffer_size
+	);
+
+	tab_replacement = (String) alloc::new_array(
+		internal_allocator, char, config.spaces_per_tab
+	);
+	mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
 
 	local_vars_started = true;
 }
@@ -452,12 +461,12 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 fn void cleanup_print_file() {
 	number_regex.free();
 	buffered_output.flush()!!;
-	buffered_output.free(used_allocator);
-	alloc::free(used_allocator, tab_replacement.ptr);
+	internal_allocator.destroy();
 }
 
 
-fn void? print_file(Print3Config config, String file_name) => @pool() {
+fn void? print_file(Print3Config config, String file_name) {
+	assert(local_vars_started == true);
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
 
@@ -465,7 +474,8 @@ fn void? print_file(Print3Config config, String file_name) => @pool() {
 	in_raw_string = false;
 
 	sz i = 0;
-	while (try line = io::treadline(&open_file)) {
+	sz line_alloc_mark = internal_allocator.mark();
+	while (try line = io::readline(internal_allocator, &open_file)) {
 		i++;
 		if (config.line_start >= 0 && i < config.line_start) continue;
 		if (config.line_stop >= 0 && i > config.line_stop) continue;
@@ -473,6 +483,7 @@ fn void? print_file(Print3Config config, String file_name) => @pool() {
 		// TODO:
 		// - truncate too long lines (80)
 		print_line(config, line, i);
+		internal_allocator.reset(line_alloc_mark);
 	}
 
 	buffered_output.flush();
