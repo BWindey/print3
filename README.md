@@ -33,6 +33,8 @@ that selects any valid C3 number
   --nrformat <text>       Format for numbers (f.e. "%d | ")
   --line-start <number>   Start printing from this line (inclusive)
   --line-stop <number>    Stop printing at this line (inclusive)
+  --print-buffer-size <number>
+                          Set the size of the print buffer (bytes, default 128)
 
   --colour-<thing> <text> Set the colour for <thing> to <text>, should be
                           specified in "#RRGGBB" format. Available things:
