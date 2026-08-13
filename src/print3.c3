@@ -1,6 +1,5 @@
 module print3;
 import std::io;
-import std::encoding::experimental::regex;
 import std::math;
 import bufferedoutput;
 
@@ -18,46 +17,10 @@ macro bool is_escaped_char(String line, sz idx) {
 	return backslash_counter % 2 != 0;
 }
 
-Regex number_regex @local @noinit;
 BufferedOutput buffered_output @local @noinit;
 BackedArenaAllocator* internal_allocator @local @noinit;
-// sz nr_format_len @local @noinit;
 
 bool local_vars_started @local = false;
-
-// fn sz String.visual_len(self) {
-// 	sz len = 0;
-// 	for (sz i = 0; i < self.len;) {
-// 		char c = self[i];
-// 		switch (c) {
-// 			// Visible ASCII
-// 			case 32..126:
-// 				len += 1;
-// 				i += 1;
-//
-// 			// UTF-8 multibyte
-// 			case 0b1100_0000..0b1101_1111:
-// 				len += 1;
-// 				i += 2;
-// 			case 0b1110_0000..0b1110_1111:
-// 				len += 1;
-// 				i += 3;
-// 			case 0b1111_0000..0b1111_0111:
-// 				len += 1;
-// 				i += 4;
-//
-// 			case 0..31:
-// 			case 127:
-// 				i += 1;
-//
-// 			default:
-// 				// Should not happen but I don't really want it to crash...
-// 				i += 1;
-// 		}
-// 	}
-//
-// 	return len;
-// }
 
 
 <*
@@ -93,13 +56,76 @@ fn void print_line_nr(Print3LineNr nr_format, sz line) {
 	buffered_output.write(nr_format.post);
 }
 
-fn void print_number(Print3Config config, String line, sz* i) {
-	Match m = number_regex.first_match(line[*i..])!!;
-	sz number_end_idx = *i + m.end;
+// This function will not strictly check validity to be as fast as possible
+fn sz print_number(Print3Config config, String line, sz i) {
+	sz number_end = i;
+
+	if (line[number_end] == '0' && number_end + 1 < line.len) {
+		switch (line[number_end + 1]) {
+			case 'x':
+			case 'b':
+			case 'o':
+				number_end += 2;
+		}
+	}
+
+	while OUTER: (number_end < line.len) switch (line[number_end]) {
+		case '0'..'9':
+		case 'a'..'d':
+		case 'A'..'D':
+		case 'f':
+		case 'F':
+			number_end += 1;
+
+		case '.':
+		case '_':
+			if (number_end + 1 < line.len) switch (line[number_end + 1]) {
+				case '0'..'9':
+				case 'a'..'f':
+				case 'A'..'F':
+					number_end += 2;
+				default: break OUTER;
+			}
+
+		case 'e':
+		case 'E':
+		case 'p':
+		case 'P':
+			if (number_end + 1 < line.len) { switch (line[number_end + 1]) {
+				case '0'..'9':
+				case 'a'..'f':
+				case 'A'..'F':
+					number_end += 2;
+
+				case '-':
+				case '+':
+					if (number_end + 2 < line.len) switch (line[number_end + 2]) {
+						case '0'..'9':
+						case 'a'..'f':
+						case 'A'..'F':
+							number_end += 3;
+
+						default: break OUTER;
+					}
+
+				default: break OUTER;
+			}} else {
+				// assume just part of hex
+				number_end += 1;
+			}
+
+		default: break OUTER;
+	}
+
+	if (number_end < line.len && line[number_end].to_lower() == 'u') number_end += 1;
+	if (number_end < line.len && line[number_end].to_lower() == 'l') number_end += 1;
+	if (number_end < line.len && line[number_end].to_lower() == 'l') number_end += 1;
+
 	buffered_output.write(config.theme.number);
-	buffered_output.write(line[*i:m.end]);
+	buffered_output.write(line[i..number_end - 1]);
 	buffered_output.write(Ansi.RESET);
-	*i += m.end;
+
+	return number_end;
 }
 
 fn String replace_tabs(String line, char spaces_per_tab) {
@@ -275,7 +301,7 @@ fn void print_line(Print3Config config, String line, sz i) @local {
 				idx++;
 
 			case '0'..'9':
-				print_number(config, line, &idx);
+				idx = print_number(config, line, idx);
 
 			case 'A'..'Z':
 				sz word_start_idx = idx;
@@ -480,22 +506,6 @@ fn void print_line(Print3Config config, String line, sz i) @local {
 fn void setup_print_file(Allocator allocator, Print3Config config) {
 	if (local_vars_started) return;
 
-	number_regex = regex::compile(
-		allocator,
-		`^[-+]?(`
-		`0x[0-9a-f](_?[0-9a-f])*(\.[0-9a-f](_?[0-9a-f])*p[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})|`
-		`(0b[01](_?[01])*|0o[0-7](_?[0-7])*)(u?l{0,2})|`
-		`[0-9](_?[0-9])*(\.[0-9](_?[0-9])*(e[+-]?[0-9](_?[0-9])*)?[fd]?|e[+-]?[0-9](_?[0-9])*[fd]?|u?l{0,2})`
-		`)`,
-		EXTENDED | ICASE
-	)!!;
-
-	// if (config.add_line_nr) {
-	// 	nr_format_len = config.nr_format.visual_len();
-	// } else {
-	// 	nr_format_len = 0;
-	// }
-
 	internal_allocator = allocators::new_backed_allocator(
 		config.print_buffer_size + BufferedOutput::size + 2048u,
 		allocator
@@ -509,7 +519,6 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 }
 
 fn void cleanup_print_file() {
-	number_regex.free();
 	buffered_output.flush()!!;
 	internal_allocator.destroy();
 }
