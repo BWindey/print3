@@ -19,7 +19,7 @@ const String HELP_MESSAGE =
   --ellipsis <text>       Ellipsis to use when truncating
   -n, --number            Show line numbers
   --nonumber              Show no line numbers
-  --nrformat <text>       Format for numbers (f.e. "%d | ")
+  --nrformat <text>       Format for numbers (f.e. "%d | ").
   --line-start <number>   Start printing from this line (inclusive)
   --line-stop <number>    Stop printing at this line (inclusive)
   --print-buffer-size <number>
@@ -29,8 +29,30 @@ const String HELP_MESSAGE =
                           specified in "#RRGGBB" format. Available things:
                           at, call, comment, comptime_ident, constant, ident,
                           keyword, member, number, string, symbol, type.
+
+  Allowed format for --nrformat:
+    <pre>%[-][0._][1-9]d<post>
+
+	- <pre> and <post> are static strings printed around the line numbe
+	- Starts with '%' and ends with 'd'
+	- Optionally '-' to set alignment to left (default right)
+	- Optionally '0', '.' or '_' to use as padding character
+	- Optionally 1-9 as minimum width specifier (default 3)
+
+	Examples: "%d", "line - %-5d :"
 `;
 
+<*
+	Draft for custom --nrformat:
+	- anything possible, but %d is where the number will go
+	- % can be escaped like '%%', not needed after the first '%d'
+	Formatting options:
+	- allow a number to preserve space, 1 <= nr. <= 9
+	- allow '-' for left align
+	- allow '0' before space preserve to padd with '0', '.' or '_'
+
+	% [-] [0._] [1-9] d
+*>
 
 struct Print3Theme {
 	String at;
@@ -47,6 +69,14 @@ struct Print3Theme {
 	String type;
 }
 
+struct Print3LineNr {
+	bool left_align;
+	char padding_char;
+	char min_size;
+	String pre;
+	String post;
+}
+
 struct Print3Config {
 	char spaces_per_tab;
 	bool add_line_nr;
@@ -55,7 +85,7 @@ struct Print3Config {
 	sz line_stop;        // inclusive, < 0 for no limit
 	sz print_buffer_size;
 	String ellipsis;
-	String nr_format;
+	Print3LineNr nr_format;
 	List{String} files;
 	Print3Theme theme;
 }
@@ -68,7 +98,13 @@ const Print3Config DEFAULT_CONFIG = {
 	.line_stop = -1,
 	.print_buffer_size = 128,
 	.ellipsis = "...",
-	.nr_format = "%3d \u2502 ",
+	.nr_format = {
+		.left_align = false,
+		.padding_char = ' ',
+		.min_size = 3,
+		.pre = "",
+		.post = " \u2502 ",
+	},
 	.theme = {
 		.at = Ansi.BRIGHT_CYAN,
 		.call = Ansi.BRIGHT_GREEN,
@@ -89,13 +125,13 @@ const Print3Config DEFAULT_CONFIG = {
 	@require $letters.len > 0
 *>
 macro bool letter_in(char letter, char... $letters) {
-	if (letter < 'A' || letter > 'z') return false;
-	ulong $set = 0;
+	if (letter >= 128) return false;
+	uint128 $set = 0;
 	$foreach $l : $letters:
-		$assert $l >= 'A' &&& $l <= 'z';
-		$set = $set | (1ul << ($l - 'A'));
+		$assert $l < 128;
+		$set = $set | (1ull << $l);
 	$endforeach
-	return $set & (1ul << (letter - 'A')) != 0;
+	return $set & (1ull << letter) != 0;
 }
 
 fn void error(String error_msg_format, args...) @noreturn @format(0) {
@@ -111,44 +147,60 @@ fn void require_argument(String[] args, sz arg_idx) {
 	}
 }
 
-fn void check_nr_format(String nr_format) {
-	sz perc_idx = 0;
-	bool is_valid_format = false;
-	while (try _perc_idx = nr_format.index_of_char_from('%', perc_idx)) {
-		_perc_idx += 1;
-		if (_perc_idx >= nr_format.len) break;
+fn Print3LineNr parse_nr_format(String nr_format) {
+	Print3LineNr format;
 
-		// Only allow a single %..d, so if we already found one,
-		// then this one should be an escaped percent: '%%'
-		if (is_valid_format && nr_format[_perc_idx] != '%') {
-			error(
-				"--nrformat argument '%s' includes multiple '%%...d's, "
-				"which is not allowed",
-				nr_format
-			);
+	// Pre, part before first un-escaped '%'
+	sz idx = 0;
+	while (idx < nr_format.len) {
+		if (nr_format[idx] == '%') {
+			if (idx + 1 < nr_format.len && nr_format[idx + 1] != '%') {
+				break;
+			} else {
+				idx += 1;
+			}
 		}
-
-		// Skip forward so that '%-2d' is allowed
-		if (nr_format[_perc_idx] == '-') _perc_idx += 1;
-		while (_perc_idx < nr_format.len && nr_format[_perc_idx].is_digit()) {
-			_perc_idx++;
-		}
-
-		if (
-			_perc_idx < nr_format.len
-			&& letter_in(nr_format[_perc_idx], 'd' , 's')
-		) {
-			is_valid_format = true;
-		}
-		perc_idx = _perc_idx + 1;
+		idx += 1;
 	}
-	if (!is_valid_format) {
-		error(
-			"--nrformat argument '%s' does not include '%%d' for the number",
-			nr_format
+	format.pre = nr_format[..idx - 1];
+	idx++;
+
+	// Flags
+	if (idx < nr_format.len && nr_format[idx] == '-') {
+		format.left_align = true;
+		idx++;
+	}
+
+	if (idx < nr_format.len && letter_in(nr_format[idx], '0', '.', '_')) {
+		format.padding_char = nr_format[idx];
+		idx++;
+	} else {
+		format.padding_char = ' ';
+	}
+
+	if (idx < nr_format.len && nr_format[idx].is_digit()) {
+		format.min_size = nr_format[idx] - '0';
+		if (format.min_size > 9) error(
+			"--nrformat '%s' has too large minimum width ('%d' > 9)",
+			nr_format, format.min_size
 		);
+		idx++;
+	} else {
+		format.min_size = 3;
 	}
+
+	if (idx >= nr_format.len || nr_format[idx] != 'd') {
+		error("malformed format '%s' passed to --nrformat", nr_format);
+	} else {
+		idx++;
+	}
+
+	// Post
+	format.post = nr_format[idx..];
+
+	return format;
 }
+
 
 fn int parse_number(String argument, String number) {
 	int? parsed_number = number.to_int();
@@ -244,8 +296,7 @@ fn Print3Config parse_cli_args(String[] args) {
 			case "--nrformat":
 				require_argument(args, arg_idx);
 				arg_idx += 1;
-				check_nr_format(args[arg_idx]);
-				parsed_config.nr_format = args[arg_idx];
+				parsed_config.nr_format = parse_nr_format(args[arg_idx]);
 
 			case "--line-start":
 				require_argument(args, arg_idx);

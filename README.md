@@ -15,31 +15,42 @@ that selects any valid C3 number
 ## Usage:
 
 ```
- ./print3 [options...] file(s)
+./print3 [options...] file(s)
 
- Print C3 files with colours. A bit akin to 'cat' or 'bat'.
+Print C3 files with colours. A bit akin to 'cat' or 'bat'.
 
- Options and files can generally be mixed, only when an option requires
- an argument, it is expected to follow directly behind.
+Options and files can generally be mixed, only when an option requires
+an argument, it is expected to follow directly behind.
 
- Available options:
-  -h, --help              Show this help message
+Available options:
+-h, --help              Show this help message
 
-  --tabsize <number>      Amount of spaces to print for a tab character
-  --maxcol <number>       Max length of a line, truncates rest
-  --ellipsis <text>       Ellipsis to use when truncating
-  -n, --number            Show line numbers
-  --nonumber              Show no line numbers
-  --nrformat <text>       Format for numbers (f.e. "%d | ")
-  --line-start <number>   Start printing from this line (inclusive)
-  --line-stop <number>    Stop printing at this line (inclusive)
-  --print-buffer-size <number>
-                          Set the size of the print buffer (bytes, default 128)
+--tabsize <number>      Amount of spaces to print for a tab character
+--maxcol <number>       Max length of a line, truncates rest
+--ellipsis <text>       Ellipsis to use when truncating
+-n, --number            Show line numbers
+--nonumber              Show no line numbers
+--nrformat <text>       Format for numbers (f.e. "%d | ").
+--line-start <number>   Start printing from this line (inclusive)
+--line-stop <number>    Stop printing at this line (inclusive)
+--print-buffer-size <number>
+                      Set the size of the print buffer (bytes, default 128)
 
-  --colour-<thing> <text> Set the colour for <thing> to <text>, should be
-                          specified in "#RRGGBB" format. Available things:
-                          at, call, comment, comptime_ident, constant, ident,
-                          keyword, member, number, string, symbol, type.
+--colour-<thing> <text> Set the colour for <thing> to <text>, should be
+                      specified in "#RRGGBB" format. Available things:
+                      at, call, comment, comptime_ident, constant, ident,
+                      keyword, member, number, string, symbol, type.
+
+Allowed format for --nrformat:
+<pre>%[-][0._][1-9]d<post>
+
+- <pre> and <post> are static strings printed around the line numbe
+- Starts with '%' and ends with 'd'
+- Optionally '-' to set alignment to left (default right)
+- Optionally '0', '.' or '_' to use as padding character
+- Optionally 1-9 as minimum width specifier (default 3)
+
+Examples: "%d", "line - %-5d :"
 ```
 
 

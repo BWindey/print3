@@ -22,42 +22,76 @@ Regex number_regex @local @noinit;
 String tab_replacement @local @noinit;
 BufferedOutput buffered_output @local @noinit;
 BackedArenaAllocator* internal_allocator @local @noinit;
-sz nr_format_len @local @noinit;
+// sz nr_format_len @local @noinit;
 
 bool local_vars_started @local = false;
 
-fn sz String.visual_len(self) {
-	sz len = 0;
-	for (sz i = 0; i < self.len;) {
-		char c = self[i];
-		switch (c) {
-			// Visible ASCII
-			case 32..126:
-				len += 1;
-				i += 1;
+// fn sz String.visual_len(self) {
+// 	sz len = 0;
+// 	for (sz i = 0; i < self.len;) {
+// 		char c = self[i];
+// 		switch (c) {
+// 			// Visible ASCII
+// 			case 32..126:
+// 				len += 1;
+// 				i += 1;
+//
+// 			// UTF-8 multibyte
+// 			case 0b1100_0000..0b1101_1111:
+// 				len += 1;
+// 				i += 2;
+// 			case 0b1110_0000..0b1110_1111:
+// 				len += 1;
+// 				i += 3;
+// 			case 0b1111_0000..0b1111_0111:
+// 				len += 1;
+// 				i += 4;
+//
+// 			case 0..31:
+// 			case 127:
+// 				i += 1;
+//
+// 			default:
+// 				// Should not happen but I don't really want it to crash...
+// 				i += 1;
+// 		}
+// 	}
+//
+// 	return len;
+// }
 
-			// UTF-8 multibyte
-			case 0b1100_0000..0b1101_1111:
-				len += 1;
-				i += 2;
-			case 0b1110_0000..0b1110_1111:
-				len += 1;
-				i += 3;
-			case 0b1111_0000..0b1111_0111:
-				len += 1;
-				i += 4;
 
-			case 0..31:
-			case 127:
-				i += 1;
+<*
+	Custom line nr printer as replacement for printf().
 
-			default:
-				// Should not happen but I don't really want it to crash...
-				i += 1;
-		}
+	@require line >= 0
+*>
+fn void print_line_nr(Print3LineNr nr_format, sz line) {
+	// for buffer size: usz::max = 4294967296 => 10 digits
+	// sz cannot be negative, so no 11th char needed
+	static char[10] nr_buffer;
+
+	buffered_output.write(nr_format.pre);
+	sz buffer_idx = 0;
+	while (line > 0) {
+		nr_buffer[9 - buffer_idx] = (char) (line % 10) + '0';
+		line /= 10;
+		buffer_idx += 1;
+	}
+	// buffer_idx == len of line-nr in printed chars
+
+	if (nr_format.left_align) {
+		buffered_output.write(nr_buffer[buffer_idx..]);
+	}
+	// padding
+	for (int i = 0; i < nr_format.min_size - buffer_idx; i++) {
+		buffered_output.write_byte(nr_format.padding_char);
+	}
+	if (!nr_format.left_align) {
+		buffered_output.write(nr_buffer[buffer_idx..]);
 	}
 
-	return len;
+	buffered_output.write(nr_format.post);
 }
 
 fn void print_number(Print3Config config, String line, sz* i) {
@@ -80,11 +114,7 @@ bool in_raw_string = false;
 fn void print_line(Print3Config config, String line, sz i) @local {
 	sz chars_printed = 0;
 	if (config.add_line_nr) {
-		sz mark = internal_allocator.mark();
-		buffered_output.write(
-			string::format(internal_allocator, config.nr_format, i)
-		);
-		internal_allocator.reset(mark);
+		print_line_nr(config.nr_format, i);
 	}
 
 	line = line.replace(internal_allocator, "\t", tab_replacement);
@@ -435,11 +465,11 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 		EXTENDED | ICASE
 	)!!;
 
-	if (config.add_line_nr) {
-		nr_format_len = config.nr_format.visual_len();
-	} else {
-		nr_format_len = 0;
-	}
+	// if (config.add_line_nr) {
+	// 	nr_format_len = config.nr_format.visual_len();
+	// } else {
+	// 	nr_format_len = 0;
+	// }
 
 	internal_allocator = allocators::new_backed_allocator(
 		config.print_buffer_size + BufferedOutput::size + 2048u,
