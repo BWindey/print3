@@ -2,7 +2,7 @@ module print3;
 import std::io;
 import std::encoding::experimental::regex;
 import std::math;
-
+import bufferedoutput;
 
 macro bool is_escaped_char(String line, sz idx) {
 	if (idx == 0) return false;
@@ -20,8 +20,10 @@ macro bool is_escaped_char(String line, sz idx) {
 
 Regex number_regex @local @noinit;
 String tab_replacement @local @noinit;
+BufferedOutput buffered_output @local @noinit;
 Allocator used_allocator @local @noinit;
 sz nr_format_len @local @noinit;
+
 bool local_vars_started @local = false;
 
 fn sz String.visual_len(self) {
@@ -61,9 +63,9 @@ fn sz String.visual_len(self) {
 fn void print_number(Print3Config config, String line, sz* i) {
 	Match m = number_regex.first_match(line[*i..])!!;
 	sz number_end_idx = *i + m.end;
-	io::print(config.theme.number);
-	io::print(line[*i:m.end]);
-	io::print(Ansi.RESET);
+	buffered_output.write(config.theme.number);
+	buffered_output.write(line[*i:m.end]);
+	buffered_output.write(Ansi.RESET);
 	*i += m.end;
 }
 
@@ -77,15 +79,16 @@ bool in_raw_string = false;
 
 fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 	sz chars_printed = 0;
-	File* stdout = io::stdout();
-	if (config.add_line_nr) io::printf(config.nr_format, i)!!;
+	if (config.add_line_nr) @pool() {
+		buffered_output.write(string::tformat(config.nr_format, i))!!;
+	};
 
 	line = line.treplace("\t", tab_replacement);
 
 	sz idx = 0;
 
 	// Handle multiline comments / comment blocks
-	if (comment_depth > 0) stdout.write(config.theme.comment)!!;
+	if (comment_depth > 0) buffered_output.write(config.theme.comment)!!;
 	sz start_comment = idx;
 	while (comment_depth > 0 && idx < line.len) {
 		if (idx + 1 < line.len && line[idx:2] == "/*") {
@@ -99,30 +102,30 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 		}
 	}
 	if (idx > start_comment) {
-		stdout.write(line[start_comment..idx - 1])!!;
-		if (comment_depth <= 0) stdout.write(Ansi.RESET)!!;
+		buffered_output.write(line[start_comment..idx - 1])!!;
+		if (comment_depth <= 0) buffered_output.write(Ansi.RESET)!!;
 	}
-	if (idx >= line.len) stdout.write(Ansi.RESET)!!;
+	if (idx >= line.len) buffered_output.write(Ansi.RESET)!!;
 
 	// Handle multiline raw strings
-	if (in_raw_string) stdout.write(config.theme.string)!!;
+	if (in_raw_string) buffered_output.write(config.theme.string)!!;
 	while (in_raw_string && idx < line.len) {
 		if (line[idx] == '`') {
 			in_raw_string = false;
-			stdout.write_byte('`')!!;
-			stdout.write(Ansi.RESET)!!;
+			buffered_output.write_byte('`')!!;
+			buffered_output.write(Ansi.RESET)!!;
 		} else {
-			stdout.write_byte(line[idx])!!;
+			buffered_output.write_byte(line[idx])!!;
 		}
 		idx++;
 	}
-	if (idx >= line.len) stdout.write(Ansi.RESET)!!;
+	if (idx >= line.len) buffered_output.write(Ansi.RESET)!!;
 
 	// Handle rest
 	while (idx < line.len) {
 		switch (line[idx]) {
 			case ' ':
-				stdout.write_byte(' ')!!;
+				buffered_output.write_byte(' ')!!;
 				idx++;
 
 			case '/':
@@ -145,9 +148,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 					} else {
 						nextcase;
 					}
-					stdout.write(config.theme.comment)!!;
-					stdout.write(line[idx..end_of_comment])!!;
-					stdout.write(Ansi.RESET)!!;
+					buffered_output.write(config.theme.comment)!!;
+					buffered_output.write(line[idx..end_of_comment])!!;
+					buffered_output.write(Ansi.RESET)!!;
 					idx = end_of_comment + 1;
 				} else {
 					nextcase;
@@ -171,9 +174,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 			case '|':
 			case '&':
 			case '~':
-				stdout.write(config.theme.symbol)!!;
-				stdout.write_byte(line[idx])!!;
-				stdout.write(Ansi.RESET)!!;
+				buffered_output.write(config.theme.symbol)!!;
+				buffered_output.write_byte(line[idx])!!;
+				buffered_output.write(Ansi.RESET)!!;
 				idx++;
 
 			case '\'':
@@ -182,9 +185,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 				while (
 					idx < line.len && (line[idx] != '\'' || is_escaped_char(line, idx))
 				) { idx++; }
-				stdout.write(config.theme.string)!!;
-				stdout.write(line[word_start_idx..idx])!!;
-				stdout.write(Ansi.RESET)!!;
+				buffered_output.write(config.theme.string)!!;
+				buffered_output.write(line[word_start_idx..idx])!!;
+				buffered_output.write(Ansi.RESET)!!;
 				idx++;
 
 			case '"':
@@ -193,9 +196,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 				while (
 					idx < line.len && (line[idx] != '"' || is_escaped_char(line, idx))
 				) { idx++; }
-				stdout.write(config.theme.string)!!;
-				stdout.write(line[word_start_idx..idx])!!;
-				stdout.write(Ansi.RESET)!!;
+				buffered_output.write(config.theme.string)!!;
+				buffered_output.write(line[word_start_idx..idx])!!;
+				buffered_output.write(Ansi.RESET)!!;
 				idx++;
 			case '`':
 				sz word_start_idx = idx;
@@ -207,9 +210,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 					idx--;
 					in_raw_string = true;
 				}
-				stdout.write(config.theme.string)!!;
-				stdout.write(line[word_start_idx..idx])!!;
-				stdout.write(Ansi.RESET)!!;
+				buffered_output.write(config.theme.string)!!;
+				buffered_output.write(line[word_start_idx..idx])!!;
+				buffered_output.write(Ansi.RESET)!!;
 				idx++;
 
 			case '0'..'9':
@@ -231,13 +234,13 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 				String word = line[word_start_idx..word_end_idx];
 
 				if (is_al_caps) {
-					stdout.write(config.theme.constant)!!;
-					stdout.write(word)!!;
-					stdout.write(Ansi.RESET)!!;
+					buffered_output.write(config.theme.constant)!!;
+					buffered_output.write(word)!!;
+					buffered_output.write(Ansi.RESET)!!;
 				} else {
-					stdout.write(config.theme.type)!!;
-					stdout.write(word)!!;
-					stdout.write(Ansi.RESET)!!;
+					buffered_output.write(config.theme.type)!!;
+					buffered_output.write(word)!!;
+					buffered_output.write(Ansi.RESET)!!;
 				}
 
 			case '@':
@@ -251,11 +254,11 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 				}
 				sz word_end_idx = idx - 1;
 				if (idx < line.len && line[idx] == '(') {
-					stdout.write(Ansi.BOLD)!!;
+					buffered_output.write(Ansi.BOLD)!!;
 				}
-				stdout.write(config.theme.at)!!;
-				stdout.write(line[word_start_idx..word_end_idx])!!;
-				stdout.write(Ansi.RESET)!!;
+				buffered_output.write(config.theme.at)!!;
+				buffered_output.write(line[word_start_idx..word_end_idx])!!;
+				buffered_output.write(Ansi.RESET)!!;
 
 			default:
 				sz word_start_idx = idx;
@@ -348,9 +351,9 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 					case "$Typefrom":
 					case "$Typeof":
 					case "$vaarg":
-						stdout.write(config.theme.keyword)!!;
-						stdout.write(word)!!;
-						stdout.write(Ansi.RESET)!!;
+						buffered_output.write(config.theme.keyword)!!;
+						buffered_output.write(word)!!;
+						buffered_output.write(Ansi.RESET)!!;
 					case "void":
 					case "bool":
 					case "char":
@@ -376,19 +379,19 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 					case "fault":
 					case "typeid":
 					case "untypedlist":
-						stdout.write(config.theme.type)!!;
-						stdout.write(word)!!;
-						stdout.write(Ansi.RESET)!!;
+						buffered_output.write(config.theme.type)!!;
+						buffered_output.write(word)!!;
+						buffered_output.write(Ansi.RESET)!!;
 					default:
 						if (line[word_start_idx] == '$') {
-							stdout.write(config.theme.comptime_ident)!!;
-							stdout.write(word)!!;
-							stdout.write(Ansi.RESET)!!;
+							buffered_output.write(config.theme.comptime_ident)!!;
+							buffered_output.write(word)!!;
+							buffered_output.write(Ansi.RESET)!!;
 						} else if (idx < line.len && line[idx] == '(') {
-							stdout.write(Ansi.BOLD)!!;
-							stdout.write(config.theme.call)!!;
-							stdout.write(word)!!;
-							stdout.write(Ansi.RESET)!!;
+							buffered_output.write(Ansi.BOLD)!!;
+							buffered_output.write(config.theme.call)!!;
+							buffered_output.write(word)!!;
+							buffered_output.write(Ansi.RESET)!!;
 						} else if (
 							word_start_idx - 1 >= 0
 							&& line[word_start_idx - 1] == '.'
@@ -401,17 +404,18 @@ fn void print_line(Print3Config config, String line, sz i) @local => @pool() {
 								|| line[word_start_idx - 2] == ']'
 							)
 						) {
-							stdout.write(config.theme.member)!!;
-							stdout.write(word)!!;
-							stdout.write(Ansi.RESET)!!;
+							buffered_output.write(config.theme.member)!!;
+							buffered_output.write(word)!!;
+							buffered_output.write(Ansi.RESET)!!;
 						} else {
-							stdout.write(word)!!;
+							buffered_output.write(word)!!;
 						}
 				}
 		}
 	}
 
-	if (line.len == 0 || line[^1] != '\n') stdout.write_byte('\n')!!;
+	sz foo = 0;
+	if (line.len == 0 || line[^1] != '\n') buffered_output.write_byte('\n')!!;
 }
 
 fn void setup_print_file(Allocator allocator, Print3Config config) {
@@ -438,6 +442,8 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 		nr_format_len = 0;
 	}
 
+	buffered_output = bufferedoutput::new(allocator, config.print_buffer_size);
+
 	used_allocator = allocator;
 
 	local_vars_started = true;
@@ -445,6 +451,8 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 
 fn void cleanup_print_file() {
 	number_regex.free();
+	buffered_output.flush()!!;
+	buffered_output.free(used_allocator);
 	alloc::free(used_allocator, tab_replacement.ptr);
 }
 
@@ -466,4 +474,6 @@ fn void? print_file(Print3Config config, String file_name) => @pool() {
 		// - truncate too long lines (80)
 		print_line(config, line, i);
 	}
+
+	buffered_output.flush();
 }

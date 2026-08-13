@@ -22,6 +22,8 @@ const String HELP_MESSAGE =
   --nrformat <text>       Format for numbers (f.e. "%d | ")
   --line-start <number>   Start printing from this line (inclusive)
   --line-stop <number>    Stop printing at this line (inclusive)
+  --print-buffer-size <number>
+                          Set the size of the print buffer (bytes, default 128)
 
   --colour-<thing> <text> Set the colour for <thing> to <text>, should be
                           specified in "#RRGGBB" format. Available things:
@@ -51,6 +53,7 @@ struct Print3Config {
 	int max_col;         // < 0 for no limit
 	sz line_start;       // inclusive
 	sz line_stop;        // inclusive, < 0 for no limit
+	sz print_buffer_size;
 	String ellipsis;
 	String nr_format;
 	List{String} files;
@@ -63,6 +66,7 @@ const Print3Config DEFAULT_CONFIG = {
 	.max_col = -1,
 	.line_start = 0,
 	.line_stop = -1,
+	.print_buffer_size = 128,
 	.ellipsis = "...",
 	.nr_format = "%3d \u2502 ",
 	.theme = {
@@ -252,6 +256,13 @@ fn Print3Config parse_cli_args(String[] args) {
 				require_argument(args, arg_idx);
 				arg_idx += 1;
 				parsed_config.line_stop = parse_number(args[arg_idx - 1], args[arg_idx]);
+
+			case "--print-buffer-size":
+				require_argument(args, arg_idx);
+				arg_idx += 1;
+				parsed_config.print_buffer_size = parse_number(
+					args[arg_idx - 1], args[arg_idx]
+				);
 
 			case "--colour-at":
 				require_argument(args, arg_idx);
