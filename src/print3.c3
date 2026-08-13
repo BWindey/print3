@@ -29,7 +29,7 @@ bool local_vars_started @local = false;
 	@require line >= 0
 *>
 fn void print_line_nr(Print3LineNr nr_format, sz line) {
-	// for buffer size: usz::max = 4294967296 => 10 digits
+	// for buffer size: usz::max = 4_294_967_296 => 10 digits
 	// sz cannot be negative, so no 11th char needed
 	static char[10] nr_buffer;
 
@@ -50,7 +50,7 @@ fn void print_line_nr(Print3LineNr nr_format, sz line) {
 		buffered_output.write_byte(nr_format.padding_char);
 	}
 	if (!nr_format.left_align) {
-		buffered_output.write(nr_buffer[buffer_idx..]);
+		buffered_output.write(nr_buffer[10 - buffer_idx..]);
 	}
 
 	buffered_output.write(nr_format.post);

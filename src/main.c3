@@ -12,9 +12,10 @@ fn int main(String[] args) {
 	defer cleanup_print_file();
 
 	foreach (i, filename : config.files) {
-		if (config.files.len() > 2) {
+		if (config.files.len() > 1) {
 			if (i > 0) io::print("\n");
 			io::printfn("%s%s%s:", Ansi.UNDERLINE, filename, Ansi.RESET);
+			io::stdout().flush()!!;
 		}
 		print_file(config, filename)!!;
 	}
