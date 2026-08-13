@@ -19,7 +19,6 @@ macro bool is_escaped_char(String line, sz idx) {
 }
 
 Regex number_regex @local @noinit;
-String tab_replacement @local @noinit;
 BufferedOutput buffered_output @local @noinit;
 BackedArenaAllocator* internal_allocator @local @noinit;
 // sz nr_format_len @local @noinit;
@@ -103,6 +102,32 @@ fn void print_number(Print3Config config, String line, sz* i) {
 	*i += m.end;
 }
 
+fn String replace_tabs(String line, char spaces_per_tab) {
+	int tab_count = 0;
+	foreach (char c : line) if (c == '\t') tab_count += 1;
+
+	if (tab_count == 0) return line;
+
+	String replaced_line = (String) alloc::alloc_array(
+		internal_allocator, char, line.len + tab_count * ((sz) spaces_per_tab - 1)
+	);
+
+	sz idx = 0;
+	foreach (char c : line) {
+		if (c == '\t') {
+			for (char i = 0; i < spaces_per_tab; i++) {
+				replaced_line[idx] = ' ';
+				idx++;
+			}
+		} else {
+			replaced_line[idx] = c;
+			idx++;
+		}
+	}
+
+	return replaced_line;
+}
+
 // TODO: use symbol colour for escape sequences in strings
 // TODO: support doc contracts
 // TODO: for lines that do not get printed, add a scan for opening/closing
@@ -117,7 +142,7 @@ fn void print_line(Print3Config config, String line, sz i) @local {
 		print_line_nr(config.nr_format, i);
 	}
 
-	line = line.replace(internal_allocator, "\t", tab_replacement);
+	line = replace_tabs(line, config.spaces_per_tab);
 
 	sz idx = 0;
 
@@ -479,11 +504,6 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 	buffered_output = bufferedoutput::new(
 		internal_allocator, config.print_buffer_size
 	);
-
-	tab_replacement = (String) alloc::new_array(
-		internal_allocator, char, config.spaces_per_tab
-	);
-	mem::set(&tab_replacement[0], ' ', config.spaces_per_tab);
 
 	local_vars_started = true;
 }
