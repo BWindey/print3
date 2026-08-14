@@ -2,6 +2,7 @@ module print3;
 import std::io;
 import std::math;
 import bufferedoutput;
+import bufferedinput;
 
 macro bool is_escaped_char(String line, sz idx) {
 	if (idx == 0) return false;
@@ -18,6 +19,7 @@ macro bool is_escaped_char(String line, sz idx) {
 }
 
 BufferedOutput buffered_output @local @noinit;
+BufferedInput buffered_input @local @noinit;
 BackedArenaAllocator* internal_allocator @local @noinit;
 
 bool local_vars_started @local = false;
@@ -515,6 +517,12 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 		internal_allocator, config.print_buffer_size
 	);
 
+	buffered_input = bufferedinput::new(
+		internal_allocator,
+		config.read_buffer_size,
+		null
+	);
+
 	local_vars_started = true;
 }
 
@@ -529,12 +537,14 @@ fn void? print_file(Print3Config config, String file_name) {
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
 
+	buffered_input.input = &open_file;
+
 	comment_depth = 0;
 	in_raw_string = false;
 
 	sz i = 0;
 	sz line_alloc_mark = internal_allocator.mark();
-	while (try line = io::readline(internal_allocator, &open_file)) {
+	while (try line = buffered_input.readline()) {
 		i++;
 		if (config.line_start >= 0 && i < config.line_start) continue;
 		if (config.line_stop >= 0 && i > config.line_stop) continue;

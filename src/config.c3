@@ -20,8 +20,11 @@ const String HELP_MESSAGE =
   --nrformat <text>       Format for numbers (f.e. "%d | ").
   --line-start <number>   Start printing from this line (inclusive)
   --line-stop <number>    Stop printing at this line (inclusive)
+
   --print-buffer-size <number>
                           Set the size of the print buffer (bytes, default 128)
+  --read-buffer-size <number>
+                          Set the size of the read buffer (bytes, default 512)
 
   --colour-<thing> <text> Set the colour for <thing> to <text>, should be
                           specified in "#RRGGBB" format. Available things:
@@ -70,6 +73,7 @@ struct Print3Config {
 	sz line_start;       // inclusive
 	sz line_stop;        // inclusive, < 0 for no limit
 	sz print_buffer_size;
+	sz read_buffer_size;
 	Print3LineNr nr_format;
 	List{String} files;
 	Print3Theme theme;
@@ -81,6 +85,7 @@ const Print3Config DEFAULT_CONFIG = {
 	.line_start = 0,
 	.line_stop = -1,
 	.print_buffer_size = 128,
+	.read_buffer_size = 512,
 	.nr_format = {
 		.left_align = false,
 		.padding_char = ' ',
@@ -279,6 +284,13 @@ fn Print3Config parse_cli_args(String[] args) {
 				require_argument(args, arg_idx);
 				arg_idx += 1;
 				parsed_config.print_buffer_size = parse_number(
+					args[arg_idx - 1], args[arg_idx]
+				);
+
+			case "--read-buffer-size":
+				require_argument(args, arg_idx);
+				arg_idx += 1;
+				parsed_config.read_buffer_size = parse_number(
 					args[arg_idx - 1], args[arg_idx]
 				);
 
