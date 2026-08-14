@@ -35,6 +35,13 @@ struct BufferedInput {
 	char[] buffer;
 }
 
+fn void BufferedInput.set_new_input(&self, File* input) {
+	self.reached_eof = false;
+	self.pos = 0;
+	self.end = 0;
+	self.input = input;
+}
+
 fn BufferedInput new(Allocator allocator, sz size, File* input) {
 	BufferedInput bi;
 	bi.buffer = alloc::new_array(allocator, char, size);
@@ -88,6 +95,8 @@ fn String? BufferedInput.readline(&self) {
 
 		String line = (String) self.buffer[self.pos..self.end - 1];
 		if (line.len > 0 && line[^1] == '\r') line = line[..^1];
+
+		self.pos = self.end;
 		return line;
 	}
 

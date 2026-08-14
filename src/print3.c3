@@ -81,37 +81,43 @@ fn sz print_number(Print3Config config, String line, sz i) {
 
 		case '.':
 		case '_':
-			if (number_end + 1 < line.len) switch (line[number_end + 1]) {
-				case '0'..'9':
-				case 'a'..'f':
-				case 'A'..'F':
-					number_end += 2;
-				default: break OUTER;
-			}
+			if (number_end + 1 < line.len) {
+				switch (line[number_end + 1]) {
+					case '0'..'9':
+					case 'a'..'f':
+					case 'A'..'F':
+						number_end += 2;
+					default: break OUTER;
+				}
+			} else { break OUTER; }
 
 		case 'e':
 		case 'E':
 		case 'p':
 		case 'P':
-			if (number_end + 1 < line.len) { switch (line[number_end + 1]) {
-				case '0'..'9':
-				case 'a'..'f':
-				case 'A'..'F':
-					number_end += 2;
+			if (number_end + 1 < line.len) {
+				switch (line[number_end + 1]) {
+					case '0'..'9':
+					case 'a'..'f':
+					case 'A'..'F':
+						number_end += 2;
 
-				case '-':
-				case '+':
-					if (number_end + 2 < line.len) switch (line[number_end + 2]) {
-						case '0'..'9':
-						case 'a'..'f':
-						case 'A'..'F':
-							number_end += 3;
+					case '-':
+					case '+':
+						if (number_end + 2 < line.len) {
+							switch (line[number_end + 2]) {
+								case '0'..'9':
+								case 'a'..'f':
+								case 'A'..'F':
+									number_end += 3;
 
-						default: break OUTER;
-					}
+								default: break OUTER;
+							}
+						} else { break OUTER; }
 
-				default: break OUTER;
-			}} else {
+					default: break OUTER;
+				}
+			} else {
 				// assume just part of hex
 				number_end += 1;
 			}
@@ -537,7 +543,7 @@ fn void? print_file(Print3Config config, String file_name) {
 	File open_file = file::open(file_name, "r")!;
 	defer open_file.close();
 
-	buffered_input.input = &open_file;
+	buffered_input.set_new_input(&open_file);
 
 	comment_depth = 0;
 	in_raw_string = false;
