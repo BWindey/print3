@@ -147,6 +147,24 @@ fn sz print_number(Print3Config config, String line, sz i) {
 	return number_end;
 }
 
+fn sz print_doc_contract(Print3Config config, String line, sz idx) {
+	sz start_comment = idx;
+	while (idx < line.len) {
+		if (idx + 1 < line.len && line[idx:2] == "*>") {
+			idx += 2;
+			in_doc_contract = false;
+			break;
+		}
+		idx += 1;
+	}
+
+	buffered_output.write(config.theme.comment);
+	buffered_output.write(line[start_comment..idx - 1]);
+	buffered_output.write(Ansi.RESET);
+
+	return idx;
+}
+
 fn String replace_tabs(String line, char spaces_per_tab) {
 	int tab_count = 0;
 	foreach (char c : line) if (c == '\t') tab_count += 1;
@@ -180,6 +198,7 @@ fn String replace_tabs(String line, char spaces_per_tab) {
 
 sz comment_depth = 0;
 bool in_raw_string = false;
+bool in_doc_contract = false;
 
 fn void print_line(Print3Config config, String line, sz i) @local {
 	sz chars_printed = 0;
@@ -225,6 +244,10 @@ fn void print_line(Print3Config config, String line, sz i) @local {
 	}
 	if (idx >= line.len) buffered_output.write(Ansi.RESET)!!;
 
+	if (in_doc_contract) {
+		idx = print_doc_contract(config, line, idx);
+	}
+
 	// Handle rest
 	while (idx < line.len) {
 		switch (line[idx]) {
@@ -260,12 +283,20 @@ fn void print_line(Print3Config config, String line, sz i) @local {
 					nextcase;
 				}
 
+			case '<':
+				if (idx + 1 < line.len && line[idx + 1] == '*') {
+					in_doc_contract = true;
+					idx = print_doc_contract(config, line, idx);
+				} else {
+					nextcase;
+				}
+
 			case '.':
 			case ',':
 			case '(': case ')':
 			case '[': case ']':
 			case '{': case '}':
-			case '<': case '>':
+			case '>':
 			case '+': case '-':
 			case '*':
 			case '%':
