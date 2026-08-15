@@ -52,13 +52,7 @@ Examples: "%d", "line - %-5d :"
 ```
 
 
-## Known issues:
-- `--maxcol` and `--ellipsis` currently do not work
-- `--colour-<thing>` colour parsing does not seem to work
-
-
 ## Improvement points:
-- profile performance and improve where possible
 - add json config file for easier default overrides
 - add either builtin pager, or auto-pipe to `less` or `more` from within `print3`
 
