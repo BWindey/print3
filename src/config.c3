@@ -14,12 +14,11 @@ const String HELP_MESSAGE =
  Available options:
   -h, --help              Show this help message
 
-  --tabsize <number>      Amount of spaces to print for a tab character
-  -n, --number            Show line numbers
+  --tabsize <number>      Amount of spaces to replace tab characters (default 4)
   --nonumber              Show no line numbers
   --nrformat <text>       Format for numbers (f.e. "%d | ").
-  --line-start <number>   Start printing from this line (inclusive)
-  --line-stop <number>    Stop printing at this line (inclusive)
+  --line-start <number>   Start printing from this line (inclusive, default 0)
+  --line-stop <number>    Stop printing at this line (inclusive, default -1)
 
   --print-buffer-size <number>
                           Set the size of the print buffer (bytes, default 128)
@@ -32,13 +31,13 @@ const String HELP_MESSAGE =
                           keyword, member, number, string, symbol, type.
 
   Allowed format for --nrformat:
-    <pre>%[-][0._][1-9]d<post>
+    %[-][0._][1-9]d
 
-	- <pre> and <post> are static strings printed around the line numbe
 	- Starts with '%' and ends with 'd'
 	- Optionally '-' to set alignment to left (default right)
 	- Optionally '0', '.' or '_' to use as padding character
 	- Optionally 1-9 as minimum width specifier (default 3)
+	- Fixed text is allowed before and after the number
 
 	Examples: "%d", "line - %-5d :"
 `;
@@ -112,7 +111,7 @@ const Print3Config DEFAULT_CONFIG = {
 <*
 	@require $letters.len > 0
 *>
-macro bool letter_in(char letter, char... $letters) {
+macro bool letter_in(char letter, char[] $letters) {
 	if (letter >= 128) return false;
 	uint128 $set = 0;
 	$foreach $l : $letters:
@@ -122,11 +121,11 @@ macro bool letter_in(char letter, char... $letters) {
 	return $set & (1ull << letter) != 0;
 }
 
-fn void error(String error_msg_format, args...) @noreturn @format(0) {
+fn void error(String error_msg_format, args..., int code = 50) @noreturn @format(0) {
 	io::eprint("Error: ");
 	io::eprintfn(error_msg_format, ...args);
 	io::eprintn("See 'print3 --help'.");
-	os::exit(50);
+	os::exit(code);
 }
 
 fn void require_argument(String[] args, sz arg_idx) {
@@ -159,7 +158,7 @@ fn Print3LineNr parse_nr_format(String nr_format) {
 		idx++;
 	}
 
-	if (idx < nr_format.len && letter_in(nr_format[idx], '0', '.', '_')) {
+	if (idx < nr_format.len && letter_in(nr_format[idx], "0._")) {
 		format.padding_char = nr_format[idx];
 		idx++;
 	} else {
@@ -258,10 +257,6 @@ fn Print3Config parse_cli_args(String[] args) {
 				}
 				parsed_config.spaces_per_tab = (char) parsed_tab_size;
 
-			case "-n":
-			case "--number":
-				parsed_config.add_line_nr = true;
-
 			case "--nonumber":
 				parsed_config.add_line_nr = false;
 
@@ -346,7 +341,7 @@ fn Print3Config parse_cli_args(String[] args) {
 
 			default:
 				if (!file::is_file(args[arg_idx])) {
-					error("'%s' is not a file", args[arg_idx]);
+					error("'%s' is not a file nor a valid flag", args[arg_idx]);
 				}
 				parsed_config.files.push(args[arg_idx]);
 		}
