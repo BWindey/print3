@@ -28,6 +28,13 @@ Process pager_process @local @noinit;
 
 bool local_vars_started @local = false;
 
+macro internal_print(String s) {
+	buffered_output.write(s);
+}
+
+macro internal_print_char(char c) {
+	buffered_output.write_byte(c);
+}
 
 <*
 	Custom line nr printer as replacement for printf().

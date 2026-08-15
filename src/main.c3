@@ -13,9 +13,11 @@ fn int main(String[] args) {
 
 	foreach (i, filename : config.files) {
 		if (config.files.len() > 1) {
-			if (i > 0) io::print("\n");
-			io::printfn("%s%s%s:", Ansi.UNDERLINE, filename, Ansi.RESET);
-			io::stdout().flush()!!;
+			if (i > 0) internal_print_char('\n');
+			internal_print(Ansi.UNDERLINE);
+			internal_print(filename);
+			internal_print(Ansi.RESET);
+			internal_print_char('\n');
 		}
 		print_file(config, filename)!!;
 	}
