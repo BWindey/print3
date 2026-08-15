@@ -20,6 +20,8 @@ const String HELP_MESSAGE =
   --line-start <number>   Start printing from this line (inclusive, default 0)
   --line-stop <number>    Stop printing at this line (inclusive, default -1)
 
+  --pager                 Send output to 'less -R'
+
   --print-buffer-size <number>
                           Set the size of the print buffer (bytes, default 128)
   --read-buffer-size <number>
@@ -69,6 +71,7 @@ struct Print3LineNr {
 struct Print3Config {
 	char spaces_per_tab;
 	bool add_line_nr;
+	bool use_pager;
 	sz line_start;       // inclusive
 	sz line_stop;        // inclusive, < 0 for no limit
 	sz print_buffer_size;
@@ -81,6 +84,7 @@ struct Print3Config {
 const Print3Config DEFAULT_CONFIG = {
 	.spaces_per_tab = 4,
 	.add_line_nr = true,
+	.use_pager = false,
 	.line_start = 0,
 	.line_stop = -1,
 	.print_buffer_size = 128,
@@ -274,6 +278,9 @@ fn Print3Config parse_cli_args(String[] args) {
 				require_argument(args, arg_idx);
 				arg_idx += 1;
 				parsed_config.line_stop = parse_number(args[arg_idx - 1], args[arg_idx]);
+
+			case "--pager":
+				parsed_config.use_pager = true;
 
 			case "--print-buffer-size":
 				require_argument(args, arg_idx);

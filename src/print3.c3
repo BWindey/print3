@@ -1,6 +1,9 @@
 module print3;
+
 import std::io;
 import std::math;
+import std::os::process;
+
 import bufferedoutput;
 import bufferedinput;
 
@@ -21,6 +24,7 @@ macro bool is_escaped_char(String line, sz idx) {
 BufferedOutput buffered_output @local @noinit;
 BufferedInput buffered_input @local @noinit;
 BackedArenaAllocator* internal_allocator @local @noinit;
+Process pager_process @local @noinit;
 
 bool local_vars_started @local = false;
 
@@ -530,11 +534,36 @@ fn void setup_print_file(Allocator allocator, Print3Config config) {
 	);
 
 	local_vars_started = true;
+
+	if (config.use_pager) setup_pager(config);
 }
 
-fn void cleanup_print_file() {
+fn void cleanup_print_file(Print3Config config) {
 	buffered_output.flush()!!;
 	internal_allocator.destroy();
+
+	if (config.use_pager) pager_process.join()!!;
+}
+
+fn void setup_pager(Print3Config config) {
+	static File pager_stdin;
+	Process? p = process::spawn(
+		{ "less", "-R" },
+		options: INHERIT_ENV,
+		in: process::CAPTURE,
+		out: process::INHERIT,
+		err: process::INHERIT
+	);
+	if (catch p) {
+		error("Failed to spawn 'less -R' to use as pager", code: 60);
+	}
+	pager_process = p;
+
+	if (!pager_process.stdin_file) {
+		error("Failed to get stdin file from less process", code: 61);
+	}
+	pager_stdin = file::from_handle(pager_process.stdin_file);
+	buffered_output.output = &pager_stdin;
 }
 
 

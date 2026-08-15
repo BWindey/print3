@@ -9,7 +9,7 @@ fn int main(String[] args) {
 	Print3Config config = parse_cli_args(args[1..]);
 
 	setup_print_file(mem, config);
-	defer cleanup_print_file();
+	defer cleanup_print_file(config);
 
 	foreach (i, filename : config.files) {
 		if (config.files.len() > 1) {
