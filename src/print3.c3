@@ -36,6 +36,39 @@ macro internal_print_char(char c) {
 	buffered_output.write_byte(c);
 }
 
+macro bool next_char_is(String line, sz i, char c) {
+	return i + 1 < line.len && line[i + 1] == c;
+}
+
+fn void scan_for_comment_or_string(String line) {
+	for (sz i = 0; i < line.len; i++) {
+		switch (line[i]) {
+			case '`':
+				in_raw_string = !in_raw_string;
+			case '<':
+				if (next_char_is(line, i, '*')) {
+					in_doc_contract = true;
+					i += 1;
+				}
+			case '*':
+				if (!in_doc_contract && next_char_is(line, i, '>')) {
+					in_doc_contract = false;
+					i += 1;
+				} else if (next_char_is(line, i, '/')) {
+					comment_depth -= 1;
+					assert(
+						comment_depth >= 0,
+						"Unexpected '*/' while processing unprinted line"
+					);
+				}
+			case '/':
+				if (next_char_is(line, i, '*')) {
+					comment_depth += 1;
+				}
+		}
+	}
+}
+
 <*
 	Custom line nr printer as replacement for printf().
 
@@ -191,10 +224,6 @@ fn String replace_tabs(String line, char spaces_per_tab) {
 	return replaced_line;
 }
 
-// TODO: use symbol colour for escape sequences in strings
-// TODO: support doc contracts
-// TODO: for lines that do not get printed, add a scan for opening/closing
-//       contracts, strings, comments, ...
 
 sz comment_depth = 0;
 bool in_raw_string = false;
@@ -619,7 +648,10 @@ fn void? print_file(Print3Config config, String file_name) {
 	sz line_alloc_mark = internal_allocator.mark();
 	while (try line = buffered_input.readline()) {
 		i++;
-		if (config.line_start >= 0 && i < config.line_start) continue;
+		if (config.line_start >= 0 && i < config.line_start) {
+			scan_for_comment_or_string(line);
+			continue;
+		}
 		if (config.line_stop >= 0 && i > config.line_stop) continue;
 
 		print_line(config, line, i);
