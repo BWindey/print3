@@ -23,38 +23,37 @@ Options and files can generally be mixed, only when an option requires
 an argument, it is expected to follow directly behind.
 
 Available options:
--h, --help              Show this help message
+ -h, --help              Show this help message
 
---tabsize <number>      Amount of spaces to print for a tab character
--n, --number            Show line numbers
---nonumber              Show no line numbers
---nrformat <text>       Format for numbers (f.e. "%d | ").
---line-start <number>   Start printing from this line (inclusive)
---line-stop <number>    Stop printing at this line (inclusive)
---print-buffer-size <number>
-                      Set the size of the print buffer (bytes, default 128)
+ --tabsize <number>      Amount of spaces to replace tab characters (default 4)
+ --nonumber              Show no line numbers
+ --nrformat <text>       Format for numbers (f.e. "%d | ").
+ --line-start <number>   Start printing from this line (inclusive, default 0)
+ --line-stop <number>    Stop printing at this line (inclusive, default -1)
 
---colour-<thing> <text> Set the colour for <thing> to <text>, should be
-                      specified in "#RRGGBB" format. Available things:
-                      at, call, comment, comptime_ident, constant, ident,
-                      keyword, member, number, string, symbol, type.
+ --pager                 Send output to 'less -R'
 
-Allowed format for --nrformat:
-<pre>%[-][0._][1-9]d<post>
+ --print-buffer-size <number>
+                         Set the size of the print buffer (bytes, default 128)
+ --read-buffer-size <number>
+                         Set the size of the read buffer (bytes, default 512)
 
-- <pre> and <post> are static strings printed around the line numbe
-- Starts with '%' and ends with 'd'
-- Optionally '-' to set alignment to left (default right)
-- Optionally '0', '.' or '_' to use as padding character
-- Optionally 1-9 as minimum width specifier (default 3)
+ --colour-<thing> <text> Set the colour for <thing> to <text>, should be
+                         specified in "#RRGGBB" format. Available things:
+                         at, call, comment, comptime_ident, constant, ident,
+                         keyword, member, number, string, symbol, type.
 
-Examples: "%d", "line - %-5d :"
+ Allowed format for --nrformat:
+   %[-][0._][1-9]d
+
+       - Starts with '%' and ends with 'd'
+       - Optionally '-' to set alignment to left (default right)
+       - Optionally '0', '.' or '_' to use as padding character
+       - Optionally 1-9 as minimum width specifier (default 3)
+       - Fixed text is allowed before and after the number
+
+       Examples: "%d", "line - %-5d :"
 ```
-
-
-## Improvement points:
-- add json config file for easier default overrides
-- add either builtin pager, or auto-pipe to `less` or `more` from within `print3`
 
 
 ## Fun IO optimization
@@ -99,3 +98,7 @@ Summary
 In short: when the main goal of your application is printing a file to the
 terminal, spend some time optimising that printing part. The standard library
 is made for ergonomics, not for raw speed in specialised usecases.
+
+Small sidenote, with some other optimisations, benchmarks now show that `print3`
+can print my `long.c3` test-file in just `13ms`. Maybe I write an article some
+day about the steps taken to get there.
